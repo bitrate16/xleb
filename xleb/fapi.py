@@ -17,7 +17,7 @@ from xleb.config import config
 # --------------------
 
 @state.routes.get('/css/{tail:.*}')
-def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Getter for `/css/` directory"""
 
     css_dir = os.path.join(state.moddir, 'static/css')
@@ -31,7 +31,7 @@ def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @state.routes.get('/media/{tail:.*}')
-def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Getter for `/media/` directory"""
 
     media_dir = os.path.join(state.moddir, 'static/media')
@@ -68,7 +68,7 @@ def wrap_auto(method: str='GET'):
 
 
 @wrap_auto('GET')
-def root(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def root(request: aiohttp.web.Request) -> aiohttp.web.Response:
     if not request['authorized']:
         return aiohttp.web.FileResponse(os.path.join(state.moddir, 'static/auth.html'))
     return aiohttp.web.FileResponse(os.path.join(state.moddir, 'static/index.html'))
@@ -108,7 +108,7 @@ def is_valid_subpath(fspath: str) -> bool:
 
 
 @wrap_auto('GET')
-def api__list(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def api__list(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """directory listing"""
 
     webpath = request.query.get('path', None)
@@ -163,7 +163,7 @@ def api__list(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @wrap_auto('GET')
-def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Direct file download"""
 
     webpath = request.query.get('path', None)
@@ -188,7 +188,7 @@ def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @wrap_auto('GET')
-def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Move file or directory from any path to any path"""
 
     websrcpath = request.query.get('src_path', None)
@@ -242,7 +242,7 @@ def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @wrap_auto('GET')
-def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Delete file or directory"""
 
     webpath = request.query.get('path', None)
@@ -285,10 +285,10 @@ def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
     })
 
 
-DIR_TEST_RE = re.compile(r'^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\";|\/<>]+(?<![\s.])$')
+FS_NODE_TEST_RE = re.compile(r'^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\";|\/<>]+(?<![\s.])$')
 
 @wrap_auto('GET')
-def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Create directory"""
 
     webpath = request.query.get('path', None)
@@ -299,7 +299,7 @@ def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
             'error': 'invalid path',
         })
 
-    if not DIR_TEST_RE.match(name):
+    if not FS_NODE_TEST_RE.match(name):
         return aiohttp.web.json_response({
             'error': 'invalid name',
         })
@@ -332,3 +332,73 @@ def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
     return aiohttp.web.json_response({
         'result': 'ok'
     })
+
+
+@wrap_auto('POST')
+async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    """Upload file in given directory"""
+
+    webpath = request.query.get('path', None)
+
+    if webpath is None:
+        raise aiohttp.web.HTTPBadRequest()
+
+    webpath = normalize_webpath(webpath)
+
+    fspath = get_fspath_from_webpath(webpath)
+
+    # Check subdirs
+    if not is_valid_subpath(fspath):
+        raise aiohttp.web.HTTPBadRequest()
+
+    # Check existing
+    if not os.path.exists(fspath):
+        raise aiohttp.web.HTTPBadRequest()
+
+    # Form
+    try:
+        reader = await request.multipart()
+
+        field = None
+        while not reader.at_eof():
+            local_field = await reader.next()
+            if local_field.name == 'file':
+                field = local_field
+                break
+
+        if field is None:
+            raise aiohttp.web.HTTPBadRequest()
+
+        filename = field.filename
+        if filename is None:
+            raise aiohttp.web.HTTPBadRequest()
+
+        filename = filename.strip()
+        if not filename:
+            raise aiohttp.web.HTTPBadRequest()
+
+        if not FS_NODE_TEST_RE.match(filename):
+            raise aiohttp.web.HTTPBadRequest()
+
+        fspath = os.path.join(fspath, filename)
+
+        if os.path.exists(fspath):
+            raise aiohttp.web.HTTPBadRequest()
+
+        with open(fspath, 'wb') as f:
+            while True:
+                chunk = await field.read_chunk()
+                if not chunk:
+                    break
+                f.write(chunk)
+
+        return aiohttp.web.Response()
+
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        try:
+            os.remove(fspath)
+        except:
+            pass
+
+        raise aiohttp.web.HTTPInternalServerError()

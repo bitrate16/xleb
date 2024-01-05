@@ -10,6 +10,14 @@
         </style>
     </head>
     <body>
+        <div class="progress-popup" id="progress-popup" style="display: none;">
+            <div class="content horisontal">
+                <div class="vertical">
+                    <div class="spinner"></div>
+                    <div class="text" id="progress-popup-text">0%</div>
+                </div>
+            </div>
+        </div>
         <div class="file-list" id="file-list" class="vertical gap" style="align-items: flex-start; flex-wrap: wrap;">
         </div>
         <script type="text/javascript">
@@ -21,6 +29,7 @@
                 // Get page params
                 app.searchParams = new URL(window.location).searchParams;
                 app.path = app.searchParams.get('path') || '/';
+                app.uploading = false;
 
                 // Trim leading
                 while (app.path.length > 1 && app.path[0] === '/') {
@@ -172,10 +181,80 @@
                             itemElement.appendChild(itemNameElement);
                         }
 
+                        // Upload button
+                        var itemUploadElement = document.createElement('div');
+                        itemUploadElement.classList = 'upload fine-button green';
+                        itemUploadElement.addEventListener('click', function (event) {
+                            if (event.button === 0) {
+                                // Prevent parallel (how?)
+                                if (app.uploading) {
+                                    return;
+                                }
+
+                                // Pick file
+                                var input = document.createElement('input');
+                                input.type = 'file';
+
+                                // Handle selection done
+                                input.onchange = e => {
+
+                                    // Special element with file upload info
+                                    var progressPopup = document.getElementById('progress-popup');
+                                    progressPopup.style.display = null;
+
+                                    var progressPopupText = document.getElementById('progress-popup-text');
+
+                                    // Uploading started
+                                    app.uploading = true;
+
+                                    // Create form
+                                    var file = e.target.files[0];
+                                    var formdata = new FormData();
+                                    formdata.append('file', file);
+
+                                    var request = new XMLHttpRequest();
+
+                                    // Track progress
+                                    request.upload.addEventListener('progress', function (e) {
+                                        var fileSize = file.size;
+
+                                        if (e.loaded <= fileSize) {
+                                            var percent = Math.round(e.loaded / fileSize * 100);
+                                            progressPopupText.textContent = percent + '%';
+                                        }
+
+                                        if (e.loaded == e.total){
+                                            progressPopupText.textContent = '100%';
+                                        }
+                                    });
+
+                                    // Handler finish (error or success)
+                                    request.addEventListener('readystatechange', function (event) {
+                                        if (request.readyState === XMLHttpRequest.DONE) {
+                                            progressPopup.style.display = 'none';
+                                            app.uploading = false;
+
+                                            window.location.reload();
+                                        }
+                                    })
+
+                                    // POST
+                                    request.open('POST', `${ app.selfUrl }/upload?path=${ encodeURIComponent(app.path) }`);
+                                    request.timeout = 60000;
+                                    request.send(formdata);
+                                }
+
+                                // Trigger selection
+                                input.click();
+                            }
+                        })
+                        itemUploadElement.textContent = 'upload file';
+                        itemElement.appendChild(itemUploadElement);
+
                         // Create directory button
-                        var itemDeleteElement = document.createElement('div');
-                        itemDeleteElement.classList = 'mkdir fine-button';
-                        itemDeleteElement.addEventListener('click', function (event) {
+                        var itemMkdirElement = document.createElement('div');
+                        itemMkdirElement.classList = 'mkdir fine-button';
+                        itemMkdirElement.addEventListener('click', function (event) {
                             var name = prompt(`Which one?`);
                             if (!name) {
                                 return;
@@ -193,9 +272,6 @@
                             }
 
                             if (event.button === 0) {
-                                // Check name
-                                if ('/')
-
                                 fetch(
                                     `${ app.selfUrl }/mkdir?path=${ encodeURIComponent(app.path) }&name=${ encodeURIComponent(name) }`,
                                     {
@@ -225,8 +301,8 @@
                                 })
                             }
                         })
-                        itemDeleteElement.textContent = 'create directory';
-                        itemElement.appendChild(itemDeleteElement);
+                        itemMkdirElement.textContent = 'create directory';
+                        itemElement.appendChild(itemMkdirElement);
 
                         fileListElement.appendChild(itemElement);
                     } else {
@@ -269,9 +345,9 @@
                         }
 
                         // Move button
-                        var itemDeleteElement = document.createElement('div');
-                        itemDeleteElement.classList = 'move fine-button green';
-                        itemDeleteElement.addEventListener('click', function (event) {
+                        var itemMkdirElement = document.createElement('div');
+                        itemMkdirElement.classList = 'move fine-button green';
+                        itemMkdirElement.addEventListener('click', function (event) {
                             var newPath = prompt(`Where to move ${ item.name }?`, item.path);
                             if (!newPath) {
                                 return;
@@ -312,13 +388,13 @@
                                 })
                             }
                         })
-                        itemDeleteElement.textContent = 'move';
-                        itemElement.appendChild(itemDeleteElement);
+                        itemMkdirElement.textContent = 'move';
+                        itemElement.appendChild(itemMkdirElement);
 
                         // Delete button
-                        var itemDeleteElement = document.createElement('div');
-                        itemDeleteElement.classList = 'delete fine-button red';
-                        itemDeleteElement.addEventListener('click', function (event) {
+                        var itemMkdirElement = document.createElement('div');
+                        itemMkdirElement.classList = 'delete fine-button red';
+                        itemMkdirElement.addEventListener('click', function (event) {
                             if (event.button === 0 && confirm(`Delete ${ item.name }?`)) {
                                 fetch(
                                     `${ app.selfUrl }/delete?path=${ encodeURIComponent(item.path) }`,
@@ -349,8 +425,8 @@
                                 })
                             }
                         })
-                        itemDeleteElement.textContent = 'delete';
-                        itemElement.appendChild(itemDeleteElement);
+                        itemMkdirElement.textContent = 'delete';
+                        itemElement.appendChild(itemMkdirElement);
 
                         fileListElement.appendChild(itemElement);
                     }
@@ -392,6 +468,9 @@
                 function updateTitle() {
                     document.title = `Xleb: ${ app.path }`;
                 }
+
+
+                /* File picker */
 
 
                 /* Startup UI */
