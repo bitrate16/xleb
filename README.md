@@ -32,10 +32,7 @@ python -m xleb
 or directly
 
 ```
-$ xleb - h
-usage: xleb [-h] [--path PATH] [--port PORT] [--host HOST] [--log-level LOG_LEVEL] [--log] [--password PASSWORD]
-xleb: error: unrecognized arguments: - h
-[pegasko@pegasko repos]$ xleb -h
+$ xleb -h
 usage: xleb [-h] [--path PATH] [--port PORT] [--host HOST] [--log-level LOG_LEVEL] [--log] [--password PASSWORD]
 
 options:
