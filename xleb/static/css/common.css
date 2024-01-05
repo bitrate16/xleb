@@ -204,6 +204,14 @@ body, html {
     background-color: var(--yellow);
 }
 
+.file-list > .item > .dir {
+    border: thin solid var(--blue);
+
+    background-color: var(--blue);
+
+    color: var(--white);
+}
+
 .file-list > .item > .name {
     border: thin solid var(--blue);
 

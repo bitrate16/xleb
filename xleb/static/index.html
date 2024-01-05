@@ -47,6 +47,10 @@
                     app.path = app.path.slice(0, -1);
                 }
 
+                if (app.path !== '/') {
+                    app.path = '/' + app.path;
+                }
+
                 /**
                  * Get current page host
                  *
@@ -179,11 +183,17 @@
                             }
 
                             // File with download
-                            var itemNameElement = document.createElement('a');
-                            itemNameElement.classList = 'name';
-                            itemNameElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(pathSplit) }`;
-                            itemNameElement.target = '_self';
-                            itemNameElement.textContent = item.name;
+                            var itemNavElement = document.createElement('a');
+                            itemNavElement.classList = 'name';
+                            itemNavElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(pathSplit) }`;
+                            itemNavElement.target = '_self';
+                            itemNavElement.textContent = item.name;
+                            itemElement.appendChild(itemNavElement);
+
+                            // Add dirname to topbar
+                            var itemNameElement = document.createElement('div');
+                            itemNameElement.classList = 'dir';
+                            itemNameElement.textContent = truncate(app.path.split('/').slice(-1)[0], 32);
                             itemElement.appendChild(itemNameElement);
                         }
 
@@ -365,12 +375,12 @@
 
                         if (item.is_file) {
                             // File with download
-                            var itemNameElement = document.createElement('a');
-                            itemNameElement.classList = 'name';
-                            itemNameElement.href = `${ app.selfUrl }/download?path=${ encodeURIComponent(item.path) }`;
-                            itemNameElement.target = '_blank';
-                            itemNameElement.textContent = truncate(item.name, 32);
-                            itemElement.appendChild(itemNameElement);
+                            var itemNavElement = document.createElement('a');
+                            itemNavElement.classList = 'name';
+                            itemNavElement.href = `${ app.selfUrl }/download?path=${ encodeURIComponent(item.path) }`;
+                            itemNavElement.target = '_blank';
+                            itemNavElement.textContent = truncate(item.name, 32);
+                            itemElement.appendChild(itemNavElement);
 
                             // Size info
                             var itemSizeElement = document.createElement('div');
@@ -380,12 +390,12 @@
                             itemElement.appendChild(itemSizeElement);
                         } else if (item.is_dir) {
                             // File with download
-                            var itemNameElement = document.createElement('a');
-                            itemNameElement.classList = 'name';
-                            itemNameElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(item.path) }`;
-                            itemNameElement.target = '_self';
-                            itemNameElement.textContent = truncate(item.name, 32);
-                            itemElement.appendChild(itemNameElement);
+                            var itemNavElement = document.createElement('a');
+                            itemNavElement.classList = 'name';
+                            itemNavElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(item.path) }`;
+                            itemNavElement.target = '_self';
+                            itemNavElement.textContent = truncate(item.name, 32);
+                            itemElement.appendChild(itemNavElement);
                         }
 
                         // Move button
