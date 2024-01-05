@@ -151,8 +151,6 @@ body, html {
     font-size: var(--font-size);
     line-height: 1;
     height: calc(var(--font-size) + 2 * var(--item-attr-padding));
-
-    color: var(--black);
 }
 
 .file-list > .item > .type.file {
@@ -180,6 +178,16 @@ body, html {
     background-color: var(--white);
 
     text-decoration: none;
+
+    color: var(--black);
+}
+
+.file-list > .item > .size {
+    border: thin solid var(--blue);
+
+    background-color: var(--white);
+
+    text-decoration: none;
 }
 
 .file-list > .item > .move {
@@ -187,5 +195,8 @@ body, html {
 }
 
 .file-list > .item > .delete {
-    /* margin-left: auto; */
+}
+
+.file-list > .item > .mkdir {
+    margin-left: auto;
 }

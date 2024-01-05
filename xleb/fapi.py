@@ -1,3 +1,4 @@
+import re
 import os
 import shutil
 import pathlib
@@ -242,9 +243,9 @@ def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 @wrap_auto('GET')
 def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
-    """Move file or directory from any path to any path"""
+    """Delete file or directory"""
 
-    webpath = request.query.get('src_path', None)
+    webpath = request.query.get('path', None)
 
     if webpath is None:
         return aiohttp.web.json_response({
@@ -269,7 +270,59 @@ def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
     # Actually move (how?)
     try:
-        shutil.rmtree(fspath)
+        if os.path.isdir(fspath):
+            shutil.rmtree(fspath)
+        else:
+            os.remove(fspath)
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        return aiohttp.web.json_response({
+            'error': 'delete failed'
+        })
+
+    return aiohttp.web.json_response({
+        'result': 'ok'
+    })
+
+
+DIR_TEST_RE = re.compile(r'^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\";|\/<>]+(?<![\s.])$')
+
+@wrap_auto('GET')
+def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    """Create directory"""
+
+    webpath = request.query.get('path', None)
+    name = request.query.get('name', None)
+
+    if webpath is None:
+        return aiohttp.web.json_response({
+            'error': 'invalid path',
+        })
+
+    if not DIR_TEST_RE.match(name):
+        return aiohttp.web.json_response({
+            'error': 'invalid name',
+        })
+
+    webpath = normalize_webpath(webpath)
+
+    fspath = get_fspath_from_webpath(webpath)
+
+    # Check subdirs
+    if not is_valid_subpath(fspath):
+        return aiohttp.web.json_response({
+            'error': 'invalid path'
+        })
+
+    # Check existing
+    if not os.path.exists(fspath):
+        return aiohttp.web.json_response({
+            'error': 'invalid path'
+        })
+
+    # Actually move (how?)
+    try:
+        os.makedirs(os.path.join(fspath, name))
     except Exception as e:
         logging.error(e, exc_info=True)
         return aiohttp.web.json_response({
