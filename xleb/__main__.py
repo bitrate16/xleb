@@ -10,7 +10,7 @@ from xleb.state import state
 from xleb.config import config
 
 
-if __name__ == '__main__':
+def main():
 
     # Prepare logging
     logging.basicConfig(
@@ -48,3 +48,6 @@ if __name__ == '__main__':
         port=config.port,
         access_log=None,
     )
+
+if __name__ == '__main__':
+    main()
