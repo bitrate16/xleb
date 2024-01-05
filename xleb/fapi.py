@@ -25,9 +25,14 @@ import aiohttp
 import aiohttp.web
 import aiohttp.web_exceptions
 
+import xleb.pathutils
+
 from xleb.state import state
 from xleb.config import config
 
+
+# Test if given string is valid file/directory name
+FS_NODE_TEST_RE = re.compile(r'^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\";|\/<>]+(?<![\s.])$')
 
 
 # Plain API definition
@@ -61,70 +66,14 @@ async def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
     raise aiohttp.web_exceptions.HTTPNotFound()
 
 
-# Advanced API definition
-# -----------------------
-
-def wrap_auto(method: str='GET'):
-    """
-    Automatically generate api path based on function name.
-
-    Name is split by `'__'` and joined with leading `'/'`.
-    """
-
-    def actual_decorator(handler):
-        if handler.__name__ == 'root':
-            path = '/'
-        else:
-            path = '/' + '/'.join(handler.__name__.split('__'))
-
-        logging.debug(f'registering "{ handler.__name__ }" as "{ path }"')
-
-        return state.routes.route(method, path)(handler)
-
-    return actual_decorator
-
-
-@wrap_auto('GET')
+@state.routes.get('/')
 async def root(request: aiohttp.web.Request) -> aiohttp.web.Response:
     if not request['authorized']:
         return aiohttp.web.FileResponse(os.path.join(state.moddir, 'static/auth.html'))
     return aiohttp.web.FileResponse(os.path.join(state.moddir, 'static/index.html'))
 
 
-def normalize_webpath(webpath: str) -> str:
-    # Leading '/'
-    while len(webpath) > 1 and webpath.startswith('/'):
-        webpath = webpath[1:]
-
-    # Trailing '/'
-    while len(webpath) > 1 and webpath.endswith('/'):
-        webpath = webpath[:-1]
-
-    # normalize
-    webpath = webpath.strip()
-    if not webpath.startswith('/'):
-        webpath = '/' + webpath
-
-    # normalize to posix-style path
-    return pathlib.Path(webpath).resolve(strict=False).as_posix()
-
-
-def get_fspath_from_webpath(webpath: str) -> str:
-
-    # normalize to posix-style path
-    webpath = normalize_webpath(webpath)
-
-    # Get fs path
-    return os.path.join(config.path, webpath[1:])
-
-
-def is_valid_subpath(fspath: str) -> bool:
-    """Check if `'/s/b'` is subpath of `config.path = '/a'`"""
-
-    return fspath.startswith(config.path + '/')
-
-
-@wrap_auto('GET')
+@state.routes.get('/list')
 async def list(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """directory listing"""
 
@@ -136,13 +85,13 @@ async def list(request: aiohttp.web.Request) -> aiohttp.web.Response:
         })
 
     # normalize to posix-style path
-    webpath = normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_webpath(webpath)
 
     # Get fs path
-    fspath = get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
 
     # Check subdir
-    if not is_valid_subpath(fspath):
+    if not xleb.pathutils.is_valid_subpath(fspath):
         return aiohttp.web.json_response({
             'error': 'invalid path'
         })
@@ -179,7 +128,7 @@ async def list(request: aiohttp.web.Request) -> aiohttp.web.Response:
     })
 
 
-@wrap_auto('GET')
+@state.routes.get('/download')
 async def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Direct file download"""
 
@@ -189,13 +138,13 @@ async def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
         raise aiohttp.web_exceptions.HTTPNotFound()
 
     # normalize to posix-style path
-    webpath = normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_webpath(webpath)
 
     # Get fs path
-    fspath = get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
 
     # Check subdir
-    if not is_valid_subpath(fspath):
+    if not xleb.pathutils.is_valid_subpath(fspath):
         raise aiohttp.web_exceptions.HTTPNotFound()
 
     if not os.path.exists(fspath):
@@ -204,7 +153,7 @@ async def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
     return aiohttp.web.FileResponse(fspath)
 
 
-@wrap_auto('GET')
+@state.routes.get('/move')
 async def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Move file or directory from any path to any path"""
 
@@ -221,19 +170,19 @@ async def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
             'error': 'invalid dst_path',
         })
 
-    websrcpath = normalize_webpath(websrcpath)
-    webdstpath = normalize_webpath(webdstpath)
+    websrcpath = xleb.pathutils.normalize_webpath(websrcpath)
+    webdstpath = xleb.pathutils.normalize_webpath(webdstpath)
 
-    fssrcpath = get_fspath_from_webpath(websrcpath)
-    fsdstpath = get_fspath_from_webpath(webdstpath)
+    fssrcpath = xleb.pathutils.get_fspath_from_webpath(websrcpath)
+    fsdstpath = xleb.pathutils.get_fspath_from_webpath(webdstpath)
 
     # Check subdirs
-    if not is_valid_subpath(fssrcpath):
+    if not xleb.pathutils.is_valid_subpath(fssrcpath):
         return aiohttp.web.json_response({
             'error': 'invalid src_path'
         })
 
-    if not is_valid_subpath(fsdstpath):
+    if not xleb.pathutils.is_valid_subpath(fsdstpath):
         return aiohttp.web.json_response({
             'error': 'invalid dst_path'
         })
@@ -258,7 +207,7 @@ async def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
     })
 
 
-@wrap_auto('GET')
+@state.routes.get('/delete')
 async def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Delete file or directory"""
 
@@ -269,12 +218,12 @@ async def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
             'error': 'invalid src_path',
         })
 
-    webpath = normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_webpath(webpath)
 
-    fspath = get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
 
     # Check subdirs
-    if not is_valid_subpath(fspath):
+    if not xleb.pathutils.is_valid_subpath(fspath):
         return aiohttp.web.json_response({
             'error': 'invalid src_path'
         })
@@ -302,9 +251,7 @@ async def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
     })
 
 
-FS_NODE_TEST_RE = re.compile(r'^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\";|\/<>]+(?<![\s.])$')
-
-@wrap_auto('GET')
+@state.routes.get('/mkdir')
 async def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Create directory"""
 
@@ -321,12 +268,12 @@ async def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
             'error': 'invalid name',
         })
 
-    webpath = normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_webpath(webpath)
 
-    fspath = get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
 
     # Check subdirs
-    if not is_valid_subpath(fspath):
+    if not xleb.pathutils.is_valid_subpath(fspath):
         return aiohttp.web.json_response({
             'error': 'invalid path'
         })
@@ -351,7 +298,7 @@ async def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
     })
 
 
-@wrap_auto('POST')
+@state.routes.post('/upload')
 async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Upload file in given directory"""
 
@@ -360,12 +307,12 @@ async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
     if webpath is None:
         raise aiohttp.web.HTTPBadRequest()
 
-    webpath = normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_webpath(webpath)
 
-    fspath = get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
 
     # Check subdirs
-    if not is_valid_subpath(fspath):
+    if not xleb.pathutils.is_valid_subpath(fspath):
         raise aiohttp.web.HTTPBadRequest()
 
     # Check existing
@@ -406,7 +353,7 @@ async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
     # Prevent duplicates
     if os.path.exists(fspath):
-        raise aiohttp.web.HTTPBadRequest()
+        raise aiohttp.web.HTTPConflict()
 
     # Receive
     try:

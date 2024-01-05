@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='xleb',
-    version='1.0',
+    version='1.1',
     py_modules=['xleb'],
     packages=['xleb'],
     description='web-based remote file manager',

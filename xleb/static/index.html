@@ -18,7 +18,9 @@
             <div class="content horisontal">
                 <div class="vertical">
                     <div class="spinner"></div>
-                    <div class="text" id="progress-popup-text">0%</div>
+                    <div class="text" id="progress-count-popup-text">0%</div>
+                    <div class="text" id="progress-percent-popup-text">0%</div>
+                    <div class="text" id="progress-fail-popup-text"></div>
                 </div>
             </div>
         </div>
@@ -198,60 +200,99 @@
                                 // Pick file
                                 var input = document.createElement('input');
                                 input.type = 'file';
+                                input.multiple = true;
 
                                 // Handle selection done
-                                input.onchange = e => {
+                                input.onchange = function (event) {
+
+                                    // Check empty
+                                    if (event.target.files && event.target.files.length === 0) {
+                                        return;
+                                    }
 
                                     // Special element with file upload info
                                     var progressPopup = document.getElementById('progress-popup');
                                     progressPopup.style.display = null;
 
-                                    var progressPopupText = document.getElementById('progress-popup-text');
+                                    var progressCountPopupText = document.getElementById('progress-count-popup-text');
+                                    var progressPercentPopupText = document.getElementById('progress-percent-popup-text');
+                                    var progressFailPopupText = document.getElementById('progress-fail-popup-text');
 
                                     // Uploading started
                                     app.uploading = true;
+                                    app.failCount = 0;
 
-                                    // Create form
-                                    var file = e.target.files[0];
-                                    var formdata = new FormData();
-                                    formdata.append('file', file);
+                                    var uploadFile = function(index) {
+                                        // Create form
+                                        var file = event.target.files[index];
+                                        var formdata = new FormData();
+                                        formdata.append('file', file);
 
-                                    var request = new XMLHttpRequest();
+                                        var request = new XMLHttpRequest();
 
-                                    // Track progress
-                                    request.upload.addEventListener('progress', function (e) {
-                                        var fileSize = file.size;
+                                        // Track progress
+                                        request.upload.addEventListener('progress', function (xhrEvent) {
+                                            var fileSize = file.size;
 
-                                        if (e.loaded <= fileSize) {
-                                            var percent = Math.round(e.loaded / fileSize * 100);
-                                            progressPopupText.textContent = percent + '%';
-                                        }
+                                            progressCountPopupText.textContent = `[${ index } / ${ event.target.files.length }]`;
 
-                                        if (e.loaded == e.total){
-                                            progressPopupText.textContent = '100%';
-                                        }
-                                    });
+                                            if (xhrEvent.loaded <= fileSize) {
+                                                var percent = Math.round(xhrEvent.loaded / fileSize * 100);
+                                                progressPercentPopupText.textContent = `${ percent }%`;
+                                            }
 
-                                    // Handler finish (error or success)
-                                    request.addEventListener('readystatechange', function (event) {
-                                        if (request.readyState === XMLHttpRequest.DONE) {
-                                            progressPopup.style.display = 'none';
-                                            app.uploading = false;
+                                            if (xhrEvent.loaded == xhrEvent.total) {
+                                                progressPercentPopupText.textContent = '100%';
+                                            }
 
-                                            window.location.reload();
-                                        }
-                                    })
+                                            if (app.failCount) {
+                                                progressFailPopupText.textContent = `failed: ${ app.failCount }`;
+                                            }
+                                        });
 
-                                    // POST
-                                    request.open('POST', `${ app.selfUrl }/upload?path=${ encodeURIComponent(app.path) }`);
-                                    request.send(formdata);
+                                        request.addEventListener('load', function (xhrEvent) {
+                                            if (xhrEvent.currentTarget.status > 200) {
+                                                app.failCount++;
+                                            }
+                                        })
+
+
+                                        // Handler finish (error or success)
+                                        request.addEventListener('readystatechange', function (xhrEvent) {
+                                            if (request.readyState === XMLHttpRequest.DONE) {
+
+                                                // Exit if last upload
+                                                if (index === event.target.files.length - 1) {
+                                                    progressPopup.style.display = 'none';
+                                                    app.uploading = false;
+
+                                                    // F5
+                                                    window.location.reload();
+                                                    return;
+                                                }
+
+                                                // Goto next file
+                                                uploadFile(index + 1);
+                                            }
+                                        })
+
+                                        request.addEventListener('error', function (event) {
+                                            app.failCount++;
+                                        });
+
+                                        // POST
+                                        request.open('POST', `${ app.selfUrl }/upload?path=${ encodeURIComponent(app.path) }`);
+                                        request.send(formdata);
+                                    };
+
+                                    uploadFile(0);
                                 }
 
                                 // Trigger selection
                                 input.click();
                             }
                         })
-                        itemUploadElement.textContent = 'upload file';
+                        itemUploadElement.textContent = 'upload files';
                         itemElement.appendChild(itemUploadElement);
 
                         // Create directory button
