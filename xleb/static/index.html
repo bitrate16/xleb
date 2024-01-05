@@ -67,7 +67,7 @@
                 function fetchFilesList() {
                     return new Promise((resolve, reject) => {
                         fetch(
-                            `${ app.selfUrl }/api/list?path=${ encodeURIComponent(app.path) }`,
+                            `${ app.selfUrl }/list?path=${ encodeURIComponent(app.path) }`,
                             {
                                 'credentials': 'include',
                             }
