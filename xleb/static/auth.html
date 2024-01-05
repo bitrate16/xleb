@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Authorization required</title>
+        <meta charset="UTF-8">
+        <link rel="icon" type="image/png" href="/media/favicon.png">
+        <link rel="stylesheet" href="/css/common.css">
+        <style>
+
+            .auth-title {
+                padding: 0.25rem;
+                margin: 0 0 1rem 0;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 2rem;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="horisontal">
+            <div class="vertical gap" style="align-items: stretch; width: auto;">
+                <p class="auth-title">Xleb 🍞</p>
+                <div class="horisontal gap">
+                    <input class="fine-input" id="password-input" type="password" placeholder="password">
+                    <input class="fine-button" id="password-button" type="submit" value="enter">
+                </div>
+            </div>
+            <script type="text/javascript">
+                (function () {
+                    'use strict';
+
+                    function hex(arrayBuffer) {
+                        return Array.prototype.map.call(
+                            new Uint8Array(arrayBuffer),
+                            n => n.toString(16).padStart(2, "0")
+                        ).join("");
+                    }
+
+                    async function sha256(message) {
+                        const encoder = new TextEncoder();
+                        const decoder = new TextDecoder();
+                        const data = encoder.encode(message);
+                        const hash = await crypto.subtle.digest('SHA-256', data);
+                        return hex(hash);
+                    }
+
+                    document.getElementById('password-button').addEventListener(
+                        'click',
+                        async function (event) {
+                            var password = document.getElementById('password-input').value.trim();
+                            var passhash = await sha256(password);
+
+                            if (event.button === 0) {
+                                document.cookie = `xleb-passhash=${ passhash }; path=/; expires=Tue, 00 Jan 4000 00:00:00 GMT; SameSite=None; Secure; domain=.${ window.location.hostname }`;
+                                // document.cookie = `xleb-passhash=${ passhash }; path=/; expires=Tue, 00 Jan 4000 00:00:00 GMT; SameSite=None; Secure`;
+                                window.location.reload();
+                            }
+                        }
+                    );
+                }) ();
+            </script>
+        </div>
+    </body>
+</html>

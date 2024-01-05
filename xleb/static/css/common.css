@@ -1,0 +1,191 @@
+/* Root elements */
+
+:root {
+    --font: 'Courier New', Courier, monospace;
+    --font-size: 0.9rem;
+    --white: #FFFFFF;
+    --black: #000000;
+    --dirty: #f1f1f1;
+    --red: #d76767;
+    --green: #76d767;
+    --yellow: #d7d367;
+    --blue: #676DD7;
+    --light-blue: #a1a4d9;
+    --input-radius: 0.25rem;
+    --input-padding: 0.25rem;
+    --item-padding: 0.25rem;
+    --item-attr-padding: 0.25rem;
+    --gap: 0.25rem;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+.vertical {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+.horisontal {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+.gap {
+    gap: var(--gap);
+}
+
+
+/* Element-specific */
+
+.fine-input {
+    border: none;
+    border-radius: var(--input-radius);
+    padding: var(--input-padding);
+
+    background-color: var(--dirty);
+
+    font-family: var(--font);
+    font-size: var(--font-size);
+    line-height: 1;
+    height: calc(var(--font-size) + 2 * var(--input-padding));
+}
+
+.fine-button {
+    border: thin solid var(--blue);
+    border-radius: var(--input-radius);
+    padding: var(--input-padding);
+
+    background-color: var(--blue);
+    color: var(--white);
+
+    cursor: pointer;
+
+    font-family: var(--font);
+    font-size: var(--font-size);
+    line-height: 1;
+    height: calc(var(--font-size) + 2 * var(--input-padding));
+}
+
+.fine-button.red {
+    border: thin solid var(--red);
+
+    background-color: var(--red);
+}
+
+.fine-button.green {
+    border: thin solid var(--green);
+
+    background-color: var(--green);
+}
+
+.fine-button:hover {
+    opacity: 0.8;
+}
+
+.fine-button:active {
+    opacity: 1.0;
+    color: var(--blue);
+    background-color: var(--white);
+}
+
+.fine-button.red:active {
+    color: var(--red);
+    background-color: var(--white);
+}
+
+.fine-button.red:active {
+    color: var(--green);
+    background-color: var(--white);
+}
+
+
+/* index page only */
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+
+    gap: var(--gap);
+}
+
+.file-list > .item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: var(--gap);
+    width: 100%;
+
+    padding: var(--item-padding)
+}
+
+.file-list > .item:nth-of-type(2n) {
+    background-color: var(--dirty)
+}
+
+.file-list > .item > * {
+    border-radius: var(--input-radius);
+
+    padding: var(--item-attr-padding);
+
+    font-family: var(--font);
+    font-size: var(--font-size);
+    line-height: 1;
+    height: calc(var(--font-size) + 2 * var(--item-attr-padding));
+
+    color: var(--black);
+}
+
+.file-list > .item > .type.file {
+    border: thin solid var(--red);
+    padding: var(--input-padding);
+
+    background-color: var(--red);
+}
+
+.file-list > .item > .type.dir {
+    border: thin solid var(--blue);
+
+    background-color: var(--blue);
+}
+
+.file-list > .item > .type.nav {
+    border: thin solid var(--yellow);
+
+    background-color: var(--yellow);
+}
+
+.file-list > .item > .name {
+    border: thin solid var(--blue);
+
+    background-color: var(--white);
+
+    text-decoration: none;
+}
+
+.file-list > .item > .move {
+    margin-left: auto;
+}
+
+.file-list > .item > .delete {
+    /* margin-left: auto; */
+}

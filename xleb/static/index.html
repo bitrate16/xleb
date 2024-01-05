@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Xleb</title>
+        <meta charset="UTF-8">
+        <link rel="icon" type="image/png" href="/media/favicon.png">
+        <link rel="stylesheet" href="/css/common.css">
+        <style>
+
+        </style>
+    </head>
+    <body>
+        <div class="file-list" id="file-list" class="vertical gap" style="align-items: flex-start; flex-wrap: wrap;">
+        </div>
+        <script type="text/javascript">
+            (function () {
+                'use strict';
+
+                var app = {};
+
+                // Get page params
+                app.searchParams = new URL(window.location).searchParams;
+                app.path = app.searchParams.get('path') || '/';
+
+                // Trim leading
+                while (app.path.length > 1 && app.path[0] === '/') {
+                    app.path = app.path.slice(1);
+                }
+
+                // Trim trailing
+                while (app.path.length > 1 && app.path[app.length - 1] === '/') {
+                    app.path = app.path.slice(0, -1);
+                }
+
+                /**
+                 * Get current page host
+                 *
+                 * @returns {String}
+                 */
+                function getSelfUrl() {
+                    var url = new URL(window.location);
+                    url.pathname = '';
+                    url.search = '';
+                    url = url.toString();
+                    return url.endsWith('/') ? url.slice(0, -1) : url;
+                }
+                app.selfUrl = getSelfUrl();
+
+
+                /* API things */
+
+                /**
+                 * Fetch list of files
+                 */
+                function fetchFilesList() {
+                    return new Promise((resolve, reject) => {
+                        fetch(
+                            `${ app.selfUrl }/api/list?path=${ encodeURIComponent(app.path) }`,
+                            {
+                                'credentials': 'include',
+                            }
+                        )
+                        .then(async (response) => {
+                            if (response.status !== 200) {
+                                alert(response.statusText);
+                                resolve([]);
+                            } else {
+                                var json = await response.json();
+
+                                // Error
+                                if (json.error) {
+                                    console.error(json.error);
+                                    alert(json.error);
+                                    resolve([]);
+                                    return;
+                                }
+
+                                // Fine
+                                resolve(json['files']);
+                            }
+                        })
+                        .catch((error) => {
+                            console.error(error);
+                            alert(error);
+                            resolve([]);
+                        })
+                    });
+                }
+
+
+                // ref: https://stackoverflow.com/a/5723274
+                var truncate = function (fullStr, strLen, separator) {
+                    if (fullStr.length <= strLen) return fullStr;
+
+                    separator = separator || '...';
+
+                    var sepLen = separator.length,
+                        charsToShow = strLen - sepLen,
+                        frontChars = Math.ceil(charsToShow/2),
+                        backChars = Math.floor(charsToShow/2);
+
+                    return fullStr.substr(0, frontChars) +
+                        separator +
+                        fullStr.substr(fullStr.length - backChars);
+                };
+
+                /**
+                 * Add new file entry in list
+                 *
+                 * @param item {Object}
+                 */
+                function addFileItem(item) {
+                    // skip
+                    if (!item) {
+                        return;
+                    }
+
+                    var fileListElement = document.getElementById('file-list');
+
+                    // technical
+                    if (item.name === '..') {
+
+                        // Skip rootdir
+                        if (app.path !== '/') {
+
+                            // List item container
+                            var itemElement = document.createElement('div');
+                            itemElement.classList = 'item';
+
+                            // Up mark
+                            var itemTypeElement = document.createElement('div');
+                            itemTypeElement.classList = 'type nav';
+                            itemTypeElement.textContent = '^';
+                            itemElement.appendChild(itemTypeElement);
+
+                            var pathSplit = app.path.split('/').slice(0, -1).join('/');
+                            if (!pathSplit) {
+                                pathSplit = '/';
+                            } else if (pathSplit[0] !== '/') {
+                                pathSplit = '/' + pathSplit;
+                            }
+
+                            // File with download
+                            var itemNameElement = document.createElement('a');
+                            itemNameElement.classList = 'name';
+                            itemNameElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(pathSplit) }`;
+                            itemNameElement.target = '_self';
+                            itemNameElement.textContent = item.name;
+                            itemElement.appendChild(itemNameElement);
+
+                            fileListElement.appendChild(itemElement);
+                        }
+                    } else {
+
+                        // List item container
+                        var itemElement = document.createElement('div');
+                        itemElement.classList = 'item';
+
+                        // File type
+                        if (item.is_file || item.is_dir) {
+                            var itemTypeElement = document.createElement('div');
+                            itemTypeElement.classList = item.is_file ? 'type file' : 'type dir';
+                            itemTypeElement.textContent = item.is_file ? 'F' : 'D';
+                            itemElement.appendChild(itemTypeElement);
+                        }
+
+                        if (item.is_file) {
+                            // File with download
+                            var itemNameElement = document.createElement('a');
+                            itemNameElement.classList = 'name';
+                            itemNameElement.href = `${ app.selfUrl }/download?path=${ encodeURIComponent(item.path) }`;
+                            itemNameElement.target = '_blank';
+                            itemNameElement.textContent = truncate(item.name, 32);
+                            itemElement.appendChild(itemNameElement);
+                        } else if (item.is_dir) {
+                            // File with download
+                            var itemNameElement = document.createElement('a');
+                            itemNameElement.classList = 'name';
+                            itemNameElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(item.path) }`;
+                            itemNameElement.target = '_self';
+                            itemNameElement.textContent = truncate(item.name, 32);
+                            itemElement.appendChild(itemNameElement);
+                        }
+
+                        // Move button
+                        var itemDeleteElement = document.createElement('div');
+                        itemDeleteElement.classList = 'move fine-button green';
+                        itemDeleteElement.addEventListener('click', function (event) {
+                            var newPath = prompt(`Where to move ${ item.name }?`, item.path);
+                            if (event.button === 0 && newPath && newPath !== item.path) {
+                                fetch(
+                                    `${ app.selfUrl }/move?src_path=${ encodeURIComponent(item.path) }&dst_path=${ encodeURIComponent(newPath) }`,
+                                    {
+                                        'credentials': 'include',
+                                    }
+                                )
+                                .then(async (response) => {
+                                    if (response.status !== 200) {
+                                        alert(response.statusText);
+                                    } else {
+                                        var json = await response.json();
+
+                                        // Error
+                                        if (json.error) {
+                                            console.error(json.error);
+                                            alert(json.error);
+                                            return;
+                                        }
+
+                                        // Remove self
+                                        updateFiles();
+                                    }
+                                })
+                                .catch((error) => {
+                                    console.error(error);
+                                    alert(error);
+                                })
+                            }
+                        })
+                        itemDeleteElement.textContent = 'move';
+                        itemElement.appendChild(itemDeleteElement);
+
+                        // Delete button
+                        var itemDeleteElement = document.createElement('div');
+                        itemDeleteElement.classList = 'delete fine-button red';
+                        itemDeleteElement.addEventListener('click', function (event) {
+                            if (event.button === 0 && confirm(`Delete ${ item.name }?`)) {
+                                fetch(
+                                    `${ app.selfUrl }/delete?path=${ encodeURIComponent(item.path) }`,
+                                    {
+                                        'credentials': 'include',
+                                    }
+                                )
+                                .then(async (response) => {
+                                    if (response.status !== 200) {
+                                        alert(response.statusText);
+                                    } else {
+                                        var json = await response.json();
+
+                                        // Error
+                                        if (json.error) {
+                                            console.error(json.error);
+                                            alert(json.error);
+                                            return;
+                                        }
+
+                                        // Remove self
+                                        fileListElement.removeChild(itemElement);
+                                    }
+                                })
+                                .catch((error) => {
+                                    console.error(error);
+                                    alert(error);
+                                })
+                            }
+                        })
+                        itemDeleteElement.textContent = 'delete';
+                        itemElement.appendChild(itemDeleteElement);
+
+                        fileListElement.appendChild(itemElement);
+                    }
+                }
+
+                /**
+                 * Load files list from server and display
+                 */
+                function updateFiles() {
+                    var fileListElement = document.getElementById('file-list');
+                    fileListElement.innerHTML = '';
+
+                    // Add move up item
+                    addFileItem({ name: '..' });
+
+                    // Request and add rest
+                    fetchFilesList().then((files) => {
+                        files.forEach(item => {
+                            addFileItem(item);
+                        });
+                    })
+                }
+
+
+                /* UI things */
+
+                /**
+                 * Update path parameter in url
+                 *
+                 */
+                function updateUrl() {
+                    var pageUrl = new URL(window.location);
+                    pageUrl.searchParams.set('path', app.path);
+                    // window.history.pushState(app.path, `Xleb: ${ app.path }`, pageUrl.toString());
+                };
+
+                /**
+                 * Update path in page title
+                 */
+                function updateTitle() {
+                    document.title = `Xleb: ${ app.path }`;
+                }
+
+
+                /* Startup UI */
+
+                updateUrl();
+                updateTitle();
+                updateFiles();
+
+
+// /**
+//  * Open specified folder
+//  *
+//  * @param newPath {String}
+//  */
+// function navigate(newPath) {
+//     // No change
+//     if (app.path === newPath) {
+//         return;
+//     }
+
+//     // Change
+//     app.path = newPath;
+//     updateUrl();
+//     updateTitle();
+
+//     // Refresh items
+//     updateFiles();
+// }
+            }) ();
+        </script>
+    </body>
+</html>
