@@ -125,7 +125,7 @@ def is_valid_subpath(fspath: str) -> bool:
 
 
 @wrap_auto('GET')
-async def api__list(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def list(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """directory listing"""
 
     webpath = request.query.get('path', None)
