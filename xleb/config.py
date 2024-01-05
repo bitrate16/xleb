@@ -84,7 +84,7 @@ class XlebConfig:
         self.path = os.path.abspath(path)
         self.port = port
         self.host = host
-        self.log_level = log_level
+        self.log_level = log_level.upper()
         self.log = log
         self.password = password
 
