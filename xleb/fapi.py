@@ -372,7 +372,7 @@ async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
     if not os.path.exists(fspath):
         raise aiohttp.web.HTTPBadRequest()
 
-    # Form
+    # Form iterator
     try:
         reader = await request.multipart()
 
@@ -382,26 +382,34 @@ async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
             if local_field.name == 'file':
                 field = local_field
                 break
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        raise aiohttp.web.HTTPInternalServerError()
 
-        if field is None:
-            raise aiohttp.web.HTTPBadRequest()
+    # Field check
+    if field is None:
+        raise aiohttp.web.HTTPBadRequest()
 
-        filename = field.filename
-        if filename is None:
-            raise aiohttp.web.HTTPBadRequest()
+    # File check
+    filename = field.filename
+    if filename is None:
+        raise aiohttp.web.HTTPBadRequest()
 
-        filename = filename.strip()
-        if not filename:
-            raise aiohttp.web.HTTPBadRequest()
+    filename = filename.strip()
+    if not filename:
+        raise aiohttp.web.HTTPBadRequest()
 
-        if not FS_NODE_TEST_RE.match(filename):
-            raise aiohttp.web.HTTPBadRequest()
+    if not FS_NODE_TEST_RE.match(filename):
+        raise aiohttp.web.HTTPBadRequest()
 
-        fspath = os.path.join(fspath, filename)
+    fspath = os.path.join(fspath, filename)
 
-        if os.path.exists(fspath):
-            raise aiohttp.web.HTTPBadRequest()
+    # Prevent duplicates
+    if os.path.exists(fspath):
+        raise aiohttp.web.HTTPBadRequest()
 
+    # Receive
+    try:
         with open(fspath, 'wb') as f:
             while True:
                 chunk = await field.read_chunk()
@@ -410,7 +418,6 @@ async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
                 f.write(chunk)
 
         return aiohttp.web.Response()
-
     except Exception as e:
         logging.error(e, exc_info=True)
         try:
