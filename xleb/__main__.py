@@ -34,7 +34,7 @@ def main():
     # Prepare logging
     logging.basicConfig(
         level=config.log_level,
-        format='[%(asctime)s.%(msecs)03d] %(levelname)s %(module)s - %(funcName)s: %(message)s',
+        format='[%(asctime)s.%(msecs)03d] %(levelname)s: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
     )
     logging.getLogger().disabled = not config.log
