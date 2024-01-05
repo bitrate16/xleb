@@ -70,7 +70,7 @@ body, html {
 }
 
 
-/* Element-specific */
+/* Buttons + inputs */
 
 .fine-input {
     border: none;
@@ -148,7 +148,29 @@ body, html {
 
 /* index page only */
 
+.file-container {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    align-items: center;
+    justify-content: flex-start;
+}
+
 .file-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+
+    align-self: stretch;
+
+    gap: var(--gap);
+
+    overflow: scroll;
+}
+
+.file-nav {
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -158,7 +180,7 @@ body, html {
     gap: var(--gap);
 }
 
-.file-list > .item {
+.file-item {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -170,11 +192,11 @@ body, html {
     padding: var(--item-padding)
 }
 
-.file-list > .item:nth-of-type(2n) {
+.file-item:nth-of-type(2n) {
     background-color: var(--dirty)
 }
 
-.file-list > .item > * {
+.file-item > * {
     border-radius: var(--input-radius);
 
     padding: var(--item-attr-padding);
@@ -185,26 +207,26 @@ body, html {
     height: calc(var(--font-size) + 2 * var(--item-attr-padding));
 }
 
-.file-list > .item > .type.file {
+.file-item > .type.file {
     border: thin solid var(--red);
     padding: var(--input-padding);
 
     background-color: var(--red);
 }
 
-.file-list > .item > .type.dir {
+.file-item > .type.dir {
     border: thin solid var(--blue);
 
     background-color: var(--blue);
 }
 
-.file-list > .item > .type.nav {
+.file-item > .type.nav {
     border: thin solid var(--yellow);
 
     background-color: var(--yellow);
 }
 
-.file-list > .item > .dir {
+.file-item > .dir {
     border: thin solid var(--blue);
 
     background-color: var(--blue);
@@ -212,7 +234,7 @@ body, html {
     color: var(--white);
 }
 
-.file-list > .item > .name {
+.file-item > .name {
     border: thin solid var(--blue);
 
     background-color: var(--white);
@@ -222,7 +244,7 @@ body, html {
     color: var(--black);
 }
 
-.file-list > .item > .size {
+.file-item > .size {
     border: thin solid var(--blue);
 
     background-color: var(--white);
@@ -230,18 +252,18 @@ body, html {
     text-decoration: none;
 }
 
-.file-list > .item > .move {
+.file-item > .move {
     margin-left: auto;
 }
 
-.file-list > .item > .delete {
+.file-item > .delete {
 }
 
-.file-list > .item > .upload {
+.file-item > .upload {
     margin-left: auto;
 }
 
-.file-list > .item > .mkdir {
+.file-item > .mkdir {
 }
 
 
@@ -256,6 +278,8 @@ body, html {
     height: 100vh;
 
     background-color: #0007;
+
+    z-index: 9999;
 }
 
 .progress-popup > .content {
@@ -309,4 +333,72 @@ body, html {
     left: 2rem;
     transform: translate3d(-50%, -50%, 0);
     will-change: transform;
+}
+
+
+/* Body Drag & Drop */
+
+/* body.drag { */
+.drag-area {
+    display: block;
+    position: absolute;
+
+    width: 100vw;
+    height: 100vh;
+
+    background-color: var(--white);
+    opacity: 0.8;
+
+    z-index: 9999;
+}
+
+@keyframes drag-area-animation {
+    100% {
+        background-position: -1.4142rem -1.4142rem;
+    }
+}
+
+.drag-area > .animation {
+    width: 100vw;
+    height: 100vh;
+
+    position: relative;
+
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--blue),
+        var(--blue) 1rem,
+        var(--dirty) 1rem,
+        var(--dirty) 2rem
+    );
+    background-size: 200% 200%;
+    animation: drag-area-animation 1s infinite linear;
+}
+
+.drag-area > .animation > .hint {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    width: calc(100vw - 4rem);
+    height: calc(100vh - 4rem);
+
+    top: 2rem;
+    left: 2rem;
+
+    background-color: var(--white);
+}
+
+.drag-area > .animation > .hint > .text {
+    position: relative;
+
+    font-family: var(--font);
+    font-size: calc(2 * var(--font-size));
+    font-weight: bold;
+
+    user-select: none;
+
+    color: var(--blue);
 }

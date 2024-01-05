@@ -13,7 +13,12 @@
 
         </style>
     </head>
-    <body>
+    <body ondrop="event.preventDefault(); dropHandler(event);" ondragover="event.preventDefault(); dragOverHandler(event);">
+        <div class="drag-area" id="drag-area" style="display: none;">
+            <div class="animation">
+                <div class="hint"><span class="text">Drop files here</span></div>
+            </div>
+        </div>
         <div class="progress-popup" id="progress-popup" style="display: none;">
             <div class="content horisontal">
                 <div class="vertical">
@@ -24,7 +29,10 @@
                 </div>
             </div>
         </div>
-        <div class="file-list" id="file-list" class="vertical gap" style="align-items: flex-start; flex-wrap: wrap;">
+        <div class="file-container">
+            <div class="file-nav" id="file-nav"></div>
+            <div class="file-list" id="file-list" class="vertical gap">
+        </div>
         </div>
         <script type="text/javascript">
             (function () {
@@ -147,6 +155,98 @@
                 }
 
                 /**
+                 * Upload list of files
+                 */
+                function uploadFiles (files) {
+                    // Prevent parallel (how?)
+                    if (app.uploading) {
+                        return;
+                    }
+
+                    // Check empty
+                    if (!files || files.length === 0) {
+                        return;
+                    }
+
+                    // Special element with file upload info
+                    var progressPopup = document.getElementById('progress-popup');
+                    progressPopup.style.display = null;
+
+                    var progressCountPopupText = document.getElementById('progress-count-popup-text');
+                    var progressPercentPopupText = document.getElementById('progress-percent-popup-text');
+                    var progressFailPopupText = document.getElementById('progress-fail-popup-text');
+
+                    // Uploading started
+                    app.uploading = true;
+                    app.failCount = 0;
+
+                    var uploadFile = function(index) {
+                        // Create form
+                        var file = files[index];
+                        var formdata = new FormData();
+                        formdata.append('file', file);
+
+                        var request = new XMLHttpRequest();
+
+                        // Track progress
+                        request.upload.addEventListener('progress', function (xhrEvent) {
+                            var fileSize = file.size;
+
+                            progressCountPopupText.textContent = `[${ index } / ${ files.length }]`;
+
+                            if (xhrEvent.loaded <= fileSize) {
+                                var percent = Math.round(xhrEvent.loaded / fileSize * 100);
+                                progressPercentPopupText.textContent = `${ percent }%`;
+                            }
+
+                            if (xhrEvent.loaded == xhrEvent.total) {
+                                progressPercentPopupText.textContent = '100%';
+                            }
+
+                            if (app.failCount) {
+                                progressFailPopupText.textContent = `failed: ${ app.failCount }`;
+                            }
+                        });
+
+                        request.addEventListener('load', function (xhrEvent) {
+                            if (xhrEvent.currentTarget.status > 200) {
+                                app.failCount++;
+                            }
+                        })
+
+
+                        // Handler finish (error or success)
+                        request.addEventListener('readystatechange', function (xhrEvent) {
+                            if (request.readyState === XMLHttpRequest.DONE) {
+
+                                // Exit if last upload
+                                if (index === files.length - 1) {
+                                    progressPopup.style.display = 'none';
+                                    app.uploading = false;
+
+                                    // F5
+                                    window.location.reload();
+                                    return;
+                                }
+
+                                // Goto next file
+                                uploadFile(index + 1);
+                            }
+                        })
+
+                        request.addEventListener('error', function (event) {
+                            app.failCount++;
+                        });
+
+                        // POST
+                        request.open('POST', `${ app.selfUrl }/upload?path=${ encodeURIComponent(app.path) }`);
+                        request.send(formdata);
+                    };
+
+                    uploadFile(0);
+                };
+
+                /**
                  * Add new file entry in list
                  *
                  * @param item {Object}
@@ -159,332 +259,253 @@
 
                     var fileListElement = document.getElementById('file-list');
 
-                    // technical
-                    if (item.name === '..') {
 
-                        // List item container
-                        var itemElement = document.createElement('div');
-                        itemElement.classList = 'item';
+                    // List item container
+                    var itemElement = document.createElement('div');
+                    itemElement.classList = 'file-item';
 
-                        // Skip rootdir
-                        if (app.path !== '/') {
+                    // File type
+                    if (item.is_file || item.is_dir) {
+                        var itemTypeElement = document.createElement('div');
+                        itemTypeElement.classList = item.is_file ? 'type file' : 'type dir';
+                        itemTypeElement.textContent = item.is_file ? 'F' : 'D';
+                        itemElement.appendChild(itemTypeElement);
+                    }
 
-                            // Up mark
-                            var itemTypeElement = document.createElement('div');
-                            itemTypeElement.classList = 'type nav';
-                            itemTypeElement.textContent = '^';
-                            itemElement.appendChild(itemTypeElement);
+                    if (item.is_file) {
+                        // File with download
+                        var itemNavElement = document.createElement('a');
+                        itemNavElement.classList = 'name';
+                        itemNavElement.href = `${ app.selfUrl }/download?path=${ encodeURIComponent(item.path) }`;
+                        itemNavElement.target = '_blank';
+                        itemNavElement.textContent = truncate(item.name, 32);
+                        itemElement.appendChild(itemNavElement);
 
-                            var pathSplit = app.path.split('/').slice(0, -1).join('/');
-                            if (!pathSplit) {
-                                pathSplit = '/';
-                            } else if (pathSplit[0] !== '/') {
-                                pathSplit = '/' + pathSplit;
-                            }
+                        // Size info
+                        var itemSizeElement = document.createElement('div');
+                        itemSizeElement.classList = 'size';
+                        itemSizeElement.target = '_blank';
+                        itemSizeElement.textContent = humanFileSize(item.size);
+                        itemElement.appendChild(itemSizeElement);
+                    } else if (item.is_dir) {
+                        // File with download
+                        var itemNavElement = document.createElement('a');
+                        itemNavElement.classList = 'name';
+                        itemNavElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(item.path) }`;
+                        itemNavElement.target = '_self';
+                        itemNavElement.textContent = truncate(item.name, 32);
+                        itemElement.appendChild(itemNavElement);
+                    }
 
-                            // File with download
-                            var itemNavElement = document.createElement('a');
-                            itemNavElement.classList = 'name';
-                            itemNavElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(pathSplit) }`;
-                            itemNavElement.target = '_self';
-                            itemNavElement.textContent = item.name;
-                            itemElement.appendChild(itemNavElement);
-
-                            // Add dirname to topbar
-                            var itemNameElement = document.createElement('div');
-                            itemNameElement.classList = 'dir';
-                            itemNameElement.textContent = truncate(app.path.split('/').slice(-1)[0], 32);
-                            itemElement.appendChild(itemNameElement);
+                    // Move button
+                    var itemMkdirElement = document.createElement('div');
+                    itemMkdirElement.classList = 'move fine-button green';
+                    itemMkdirElement.addEventListener('click', function (event) {
+                        var newPath = prompt(`Where to move ${ item.name }?`, item.path);
+                        if (!newPath) {
+                            return;
                         }
 
-                        // Upload button
-                        var itemUploadElement = document.createElement('div');
-                        itemUploadElement.classList = 'upload fine-button green';
-                        itemUploadElement.addEventListener('click', function (event) {
-                            if (event.button === 0) {
-                                // Prevent parallel (how?)
-                                if (app.uploading) {
-                                    return;
+                        newPath = newPath.trim();
+                        if (!newPath || newPath === app.path) {
+                            return
+                        }
+
+                        if (event.button === 0) {
+                            fetch(
+                                `${ app.selfUrl }/move?src_path=${ encodeURIComponent(item.path) }&dst_path=${ encodeURIComponent(newPath) }`,
+                                {
+                                    'credentials': 'include',
                                 }
+                            )
+                            .then(async (response) => {
+                                if (response.status !== 200) {
+                                    alert(response.statusText);
+                                } else {
+                                    var json = await response.json();
 
-                                // Pick file
-                                var input = document.createElement('input');
-                                input.type = 'file';
-                                input.multiple = true;
-
-                                // Handle selection done
-                                input.onchange = function (event) {
-
-                                    // Check empty
-                                    if (event.target.files && event.target.files.length === 0) {
+                                    // Error
+                                    if (json.error) {
+                                        console.error(json.error);
+                                        alert(json.error);
                                         return;
                                     }
 
-                                    // Special element with file upload info
-                                    var progressPopup = document.getElementById('progress-popup');
-                                    progressPopup.style.display = null;
-
-                                    var progressCountPopupText = document.getElementById('progress-count-popup-text');
-                                    var progressPercentPopupText = document.getElementById('progress-percent-popup-text');
-                                    var progressFailPopupText = document.getElementById('progress-fail-popup-text');
-
-                                    // Uploading started
-                                    app.uploading = true;
-                                    app.failCount = 0;
-
-                                    var uploadFile = function(index) {
-                                        // Create form
-                                        var file = event.target.files[index];
-                                        var formdata = new FormData();
-                                        formdata.append('file', file);
-
-                                        var request = new XMLHttpRequest();
-
-                                        // Track progress
-                                        request.upload.addEventListener('progress', function (xhrEvent) {
-                                            var fileSize = file.size;
-
-                                            progressCountPopupText.textContent = `[${ index } / ${ event.target.files.length }]`;
-
-                                            if (xhrEvent.loaded <= fileSize) {
-                                                var percent = Math.round(xhrEvent.loaded / fileSize * 100);
-                                                progressPercentPopupText.textContent = `${ percent }%`;
-                                            }
-
-                                            if (xhrEvent.loaded == xhrEvent.total) {
-                                                progressPercentPopupText.textContent = '100%';
-                                            }
-
-                                            if (app.failCount) {
-                                                progressFailPopupText.textContent = `failed: ${ app.failCount }`;
-                                            }
-                                        });
-
-                                        request.addEventListener('load', function (xhrEvent) {
-                                            if (xhrEvent.currentTarget.status > 200) {
-                                                app.failCount++;
-                                            }
-                                        })
-
-
-                                        // Handler finish (error or success)
-                                        request.addEventListener('readystatechange', function (xhrEvent) {
-                                            if (request.readyState === XMLHttpRequest.DONE) {
-
-                                                // Exit if last upload
-                                                if (index === event.target.files.length - 1) {
-                                                    progressPopup.style.display = 'none';
-                                                    app.uploading = false;
-
-                                                    // F5
-                                                    window.location.reload();
-                                                    return;
-                                                }
-
-                                                // Goto next file
-                                                uploadFile(index + 1);
-                                            }
-                                        })
-
-                                        request.addEventListener('error', function (event) {
-                                            app.failCount++;
-                                        });
-
-                                        // POST
-                                        request.open('POST', `${ app.selfUrl }/upload?path=${ encodeURIComponent(app.path) }`);
-                                        request.send(formdata);
-                                    };
-
-                                    uploadFile(0);
+                                    // Remove self
+                                    updateFiles();
                                 }
+                            })
+                            .catch((error) => {
+                                console.error(error);
+                                alert(error);
+                            })
+                        }
+                    })
+                    itemMkdirElement.textContent = 'move';
+                    itemElement.appendChild(itemMkdirElement);
 
-                                // Trigger selection
-                                input.click();
-                            }
-                        })
-                        itemUploadElement.textContent = 'upload files';
-                        itemElement.appendChild(itemUploadElement);
+                    // Delete button
+                    var itemMkdirElement = document.createElement('div');
+                    itemMkdirElement.classList = 'delete fine-button red';
+                    itemMkdirElement.addEventListener('click', function (event) {
+                        if (event.button === 0 && confirm(`Delete ${ item.name }?`)) {
+                            fetch(
+                                `${ app.selfUrl }/delete?path=${ encodeURIComponent(item.path) }`,
+                                {
+                                    'credentials': 'include',
+                                }
+                            )
+                            .then(async (response) => {
+                                if (response.status !== 200) {
+                                    alert(response.statusText);
+                                } else {
+                                    var json = await response.json();
 
-                        // Create directory button
-                        var itemMkdirElement = document.createElement('div');
-                        itemMkdirElement.classList = 'mkdir fine-button';
-                        itemMkdirElement.addEventListener('click', function (event) {
-                            var name = prompt(`Which one?`);
-                            if (!name) {
-                                return;
-                            }
-
-                            name = name.trim();
-                            if (!name || name === app.path) {
-                                return
-                            }
-
-                            // Validate
-                            if (!/^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\";|\/<>]+(?<![\s.])$/.test(name)) {
-                                alert(`Invalid directory name "${ name }"`);
-                                return;
-                            }
-
-                            if (event.button === 0) {
-                                fetch(
-                                    `${ app.selfUrl }/mkdir?path=${ encodeURIComponent(app.path) }&name=${ encodeURIComponent(name) }`,
-                                    {
-                                        'credentials': 'include',
+                                    // Error
+                                    if (json.error) {
+                                        console.error(json.error);
+                                        alert(json.error);
+                                        return;
                                     }
-                                )
-                                .then(async (response) => {
-                                    if (response.status !== 200) {
-                                        alert(response.statusText);
-                                    } else {
-                                        var json = await response.json();
 
-                                        // Error
-                                        if (json.error) {
-                                            console.error(json.error);
-                                            alert(json.error);
-                                            return;
-                                        }
+                                    // Remove self
+                                    fileListElement.removeChild(itemElement);
+                                }
+                            })
+                            .catch((error) => {
+                                console.error(error);
+                                alert(error);
+                            })
+                        }
+                    })
+                    itemMkdirElement.textContent = 'delete';
+                    itemElement.appendChild(itemMkdirElement);
 
-                                        // Remove self
-                                        updateFiles();
-                                    }
-                                })
-                                .catch((error) => {
-                                    console.error(error);
-                                    alert(error);
-                                })
-                            }
-                        })
-                        itemMkdirElement.textContent = 'create directory';
-                        itemElement.appendChild(itemMkdirElement);
+                    fileListElement.appendChild(itemElement);
+                };
 
-                        fileListElement.appendChild(itemElement);
-                    } else {
+                /**
+                 * Add navbar items
+                 */
+                function addNavbar() {
+                    var fileListElement = document.getElementById('file-nav');
 
-                        // List item container
-                        var itemElement = document.createElement('div');
-                        itemElement.classList = 'item';
+                    // List item container
+                    var itemElement = document.createElement('div');
+                    itemElement.classList = 'file-item';
 
-                        // File type
-                        if (item.is_file || item.is_dir) {
-                            var itemTypeElement = document.createElement('div');
-                            itemTypeElement.classList = item.is_file ? 'type file' : 'type dir';
-                            itemTypeElement.textContent = item.is_file ? 'F' : 'D';
-                            itemElement.appendChild(itemTypeElement);
+
+                    // Skip rootdir
+                    if (app.path !== '/') {
+
+                        // Up mark
+                        var itemTypeElement = document.createElement('div');
+                        itemTypeElement.classList = 'type nav';
+                        itemTypeElement.textContent = '^';
+                        itemElement.appendChild(itemTypeElement);
+
+                        var pathSplit = app.path.split('/').slice(0, -1).join('/');
+                        if (!pathSplit) {
+                            pathSplit = '/';
+                        } else if (pathSplit[0] !== '/') {
+                            pathSplit = '/' + pathSplit;
                         }
 
-                        if (item.is_file) {
-                            // File with download
-                            var itemNavElement = document.createElement('a');
-                            itemNavElement.classList = 'name';
-                            itemNavElement.href = `${ app.selfUrl }/download?path=${ encodeURIComponent(item.path) }`;
-                            itemNavElement.target = '_blank';
-                            itemNavElement.textContent = truncate(item.name, 32);
-                            itemElement.appendChild(itemNavElement);
+                        // File with download
+                        var itemNavElement = document.createElement('a');
+                        itemNavElement.classList = 'name';
+                        itemNavElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(pathSplit) }`;
+                        itemNavElement.target = '_self';
+                        itemNavElement.textContent = '..';
+                        itemElement.appendChild(itemNavElement);
 
-                            // Size info
-                            var itemSizeElement = document.createElement('div');
-                            itemSizeElement.classList = 'size';
-                            itemSizeElement.target = '_blank';
-                            itemSizeElement.textContent = humanFileSize(item.size);
-                            itemElement.appendChild(itemSizeElement);
-                        } else if (item.is_dir) {
-                            // File with download
-                            var itemNavElement = document.createElement('a');
-                            itemNavElement.classList = 'name';
-                            itemNavElement.href = `${ app.selfUrl }/?path=${ encodeURIComponent(item.path) }`;
-                            itemNavElement.target = '_self';
-                            itemNavElement.textContent = truncate(item.name, 32);
-                            itemElement.appendChild(itemNavElement);
-                        }
-
-                        // Move button
-                        var itemMkdirElement = document.createElement('div');
-                        itemMkdirElement.classList = 'move fine-button green';
-                        itemMkdirElement.addEventListener('click', function (event) {
-                            var newPath = prompt(`Where to move ${ item.name }?`, item.path);
-                            if (!newPath) {
-                                return;
-                            }
-
-                            newPath = newPath.trim();
-                            if (!newPath || newPath === app.path) {
-                                return
-                            }
-
-                            if (event.button === 0) {
-                                fetch(
-                                    `${ app.selfUrl }/move?src_path=${ encodeURIComponent(item.path) }&dst_path=${ encodeURIComponent(newPath) }`,
-                                    {
-                                        'credentials': 'include',
-                                    }
-                                )
-                                .then(async (response) => {
-                                    if (response.status !== 200) {
-                                        alert(response.statusText);
-                                    } else {
-                                        var json = await response.json();
-
-                                        // Error
-                                        if (json.error) {
-                                            console.error(json.error);
-                                            alert(json.error);
-                                            return;
-                                        }
-
-                                        // Remove self
-                                        updateFiles();
-                                    }
-                                })
-                                .catch((error) => {
-                                    console.error(error);
-                                    alert(error);
-                                })
-                            }
-                        })
-                        itemMkdirElement.textContent = 'move';
-                        itemElement.appendChild(itemMkdirElement);
-
-                        // Delete button
-                        var itemMkdirElement = document.createElement('div');
-                        itemMkdirElement.classList = 'delete fine-button red';
-                        itemMkdirElement.addEventListener('click', function (event) {
-                            if (event.button === 0 && confirm(`Delete ${ item.name }?`)) {
-                                fetch(
-                                    `${ app.selfUrl }/delete?path=${ encodeURIComponent(item.path) }`,
-                                    {
-                                        'credentials': 'include',
-                                    }
-                                )
-                                .then(async (response) => {
-                                    if (response.status !== 200) {
-                                        alert(response.statusText);
-                                    } else {
-                                        var json = await response.json();
-
-                                        // Error
-                                        if (json.error) {
-                                            console.error(json.error);
-                                            alert(json.error);
-                                            return;
-                                        }
-
-                                        // Remove self
-                                        fileListElement.removeChild(itemElement);
-                                    }
-                                })
-                                .catch((error) => {
-                                    console.error(error);
-                                    alert(error);
-                                })
-                            }
-                        })
-                        itemMkdirElement.textContent = 'delete';
-                        itemElement.appendChild(itemMkdirElement);
-
-                        fileListElement.appendChild(itemElement);
+                        // Add dirname to topbar
+                        var itemNameElement = document.createElement('div');
+                        itemNameElement.classList = 'dir';
+                        itemNameElement.textContent = truncate(app.path.split('/').slice(-1)[0], 32);
+                        itemElement.appendChild(itemNameElement);
                     }
-                }
+
+                    // Upload button
+                    var itemUploadElement = document.createElement('div');
+                    itemUploadElement.classList = 'upload fine-button green';
+                    itemUploadElement.addEventListener('click', function (event) {
+                        if (event.button === 0) {
+                            // Prevent parallel (how?)
+                            if (app.uploading) {
+                                return;
+                            }
+
+                            // Pick file
+                            var input = document.createElement('input');
+                            input.type = 'file';
+                            input.multiple = true;
+
+                            // Handle selection done
+                            input.onchange = function (event) { uploadFiles(event.target.files); };
+
+                            // Trigger selection
+                            input.click();
+                        }
+                    })
+                    itemUploadElement.textContent = 'upload files';
+                    itemElement.appendChild(itemUploadElement);
+
+                    // Create directory button
+                    var itemMkdirElement = document.createElement('div');
+                    itemMkdirElement.classList = 'mkdir fine-button';
+                    itemMkdirElement.addEventListener('click', function (event) {
+                        var name = prompt(`Which one?`);
+                        if (!name) {
+                            return;
+                        }
+
+                        name = name.trim();
+                        if (!name || name === app.path) {
+                            return
+                        }
+
+                        // Validate
+                        if (!/^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\..+)?$)(?:\.*?(?!\.))[^\x00-\x1f\\?*:\";|\/<>]+(?<![\s.])$/.test(name)) {
+                            alert(`Invalid directory name "${ name }"`);
+                            return;
+                        }
+
+                        if (event.button === 0) {
+                            fetch(
+                                `${ app.selfUrl }/mkdir?path=${ encodeURIComponent(app.path) }&name=${ encodeURIComponent(name) }`,
+                                {
+                                    'credentials': 'include',
+                                }
+                            )
+                            .then(async (response) => {
+                                if (response.status !== 200) {
+                                    alert(response.statusText);
+                                } else {
+                                    var json = await response.json();
+
+                                    // Error
+                                    if (json.error) {
+                                        console.error(json.error);
+                                        alert(json.error);
+                                        return;
+                                    }
+
+                                    // Remove self
+                                    updateFiles();
+                                }
+                            })
+                            .catch((error) => {
+                                console.error(error);
+                                alert(error);
+                            })
+                        }
+                    })
+                    itemMkdirElement.textContent = 'create directory';
+                    itemElement.appendChild(itemMkdirElement);
+
+                    fileListElement.appendChild(itemElement);
+                };
 
                 /**
                  * Load files list from server and display
@@ -494,7 +515,7 @@
                     fileListElement.innerHTML = '';
 
                     // Add move up item
-                    addFileItem({ name: '..' });
+                    addNavbar();
 
                     // Request and add rest
                     fetchFilesList().then((files) => {
@@ -535,6 +556,39 @@
                         }
 
                         return 'Sure?';
+                    }
+                };
+
+
+                /* Dran & Drop handler */
+
+                window.dropHandler = function (event) {
+                    event.preventDefault();
+
+                    if (!app.uploading) {
+                        document.getElementById('drag-area').style.display = 'none';
+
+                        var files = [];
+                        if (event.dataTransfer.items) {
+                            [...event.dataTransfer.items].forEach((item, i) => {
+                            if (item.kind === "file") {
+                                files.push(item.getAsFile());
+                            }
+                            });
+                        } else {
+                            [...event.dataTransfer.files].forEach((file, i) => {
+                                files.push(file);
+                            });
+                        }
+                        uploadFiles(files);
+                    }
+                };
+
+                window.dragOverHandler = function (event) {
+                    event.preventDefault();
+
+                    if (!app.uploading) {
+                        document.getElementById('drag-area').style.display = null;
                     }
                 };
 
