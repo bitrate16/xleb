@@ -470,7 +470,19 @@
                 }
 
 
-                /* File picker */
+                /* Exit handler */
+
+                window.onbeforeunload = function (e) {
+                    if (app.uploading) {
+                        e = e || window.event;
+
+                        if (e) {
+                            e.returnValue = 'Sure?';
+                        }
+
+                        return 'Sure?';
+                    }
+                };
 
 
                 /* Startup UI */
