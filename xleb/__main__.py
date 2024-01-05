@@ -23,6 +23,8 @@ import aiohttp.web
 import aiohttp.hdrs
 import aiohttp.web_exceptions
 
+import aiohttp_middlewares
+
 from xleb.state import state
 from xleb.config import config
 
@@ -42,8 +44,6 @@ def main():
     state.routes = aiohttp.web.RouteTableDef()
     state.moddir = os.path.dirname(__file__)
 
-    logging.debug(f'passhash = { config.passhash }')
-
     logging.debug(f'state.moddir = "{ state.moddir }"')
 
 
@@ -52,6 +52,9 @@ def main():
 
     # Middlewares
     import xleb.fmiddleware
+    state.app.middlewares.append(aiohttp_middlewares.cors_middleware(
+        allow_all=True
+    ))
     state.app.middlewares.append(xleb.fmiddleware.log_request)
     state.app.middlewares.append(xleb.fmiddleware.access_check)
 

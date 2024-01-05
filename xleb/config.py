@@ -17,7 +17,6 @@
 
 import argparse
 import inspect
-import hashlib
 import os
 
 
@@ -87,7 +86,7 @@ class XlebConfig:
         self.host = host
         self.log_level = log_level
         self.log = log
-        self.passhash = hashlib.sha256(password.encode()).hexdigest() if password is not None else None
+        self.password = password
 
     @staticmethod
     def init():

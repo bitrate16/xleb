@@ -29,23 +29,13 @@
                         ).join("");
                     }
 
-                    async function sha256(message) {
-                        const encoder = new TextEncoder();
-                        const decoder = new TextDecoder();
-                        const data = encoder.encode(message);
-                        const hash = await crypto.subtle.digest('SHA-256', data);
-                        return hex(hash);
-                    }
-
                     document.getElementById('password-button').addEventListener(
                         'click',
                         async function (event) {
                             var password = document.getElementById('password-input').value.trim();
-                            var passhash = await sha256(password);
 
                             if (event.button === 0) {
-                                document.cookie = `xleb-passhash=${ passhash }; path=/; expires=Tue, 00 Jan 4000 00:00:00 GMT; SameSite=None; Secure; domain=.${ window.location.hostname }`;
-                                // document.cookie = `xleb-passhash=${ passhash }; path=/; expires=Tue, 00 Jan 4000 00:00:00 GMT; SameSite=None; Secure`;
+                                document.cookie = `xleb-password=${ password }; path=/; expires=Tue, 00 Jan 4000 00:00:00 GMT; SameSite=Lax; domain=.${ window.location.hostname }`;
                                 window.location.reload();
                             }
                         }

@@ -40,8 +40,8 @@ def access_check_whitelisted(path: str) -> bool:
 async def access_check(request: aiohttp.web.Request, handler):
     """Check if user password is valid and provide access. Else return auth page"""
 
-    passhash = request.cookies.get('xleb-passhash', None)
-    if config.passhash is None or passhash == config.passhash or access_check_whitelisted(request.path):
+    password = request.cookies.get('xleb-password', None)
+    if config.password is None or password == config.password or access_check_whitelisted(request.path):
         # pass authorized flag
         request['authorized'] = True
         return await handler(request)
