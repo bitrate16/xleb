@@ -43,7 +43,7 @@ def get_args() -> dict:
         '--host', '-a',
         help='server address',
         type=str,
-        default='127.0.0.1',
+        default='0.0.0.0',
     )
 
     parser.add_argument(
@@ -76,7 +76,7 @@ class XlebConfig:
         self,
         path: str='.',
         port: int=8000,
-        host: str='127.0.0.1',
+        host: str='0.0.0.0',
         log_level: str='INFO',
         log: bool=False,
         password: str=None,
