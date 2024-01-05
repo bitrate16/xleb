@@ -244,7 +244,6 @@
 
                                     // POST
                                     request.open('POST', `${ app.selfUrl }/upload?path=${ encodeURIComponent(app.path) }`);
-                                    request.timeout = 60000;
                                     request.send(formdata);
                                 }
 
