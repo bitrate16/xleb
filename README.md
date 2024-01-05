@@ -13,7 +13,23 @@ Xleb is a single-module python utility used to browse and manage files on rempot
 * File listing
 * WEB UI with or without password
 
+# Install
+
+Install with
+
+```bash
+pip install xleb
+```
+
 # How to use
+
+Use as module
+
+```bash
+python -m xleb
+```
+
+or directly
 
 ```
 $ xleb - h
