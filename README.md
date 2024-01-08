@@ -7,7 +7,7 @@ web-based remote file manager
 # What is it?
 
 Xleb is a single-module python utility used to browse and manage files on rempote host with support of:
-* File upload/download
+* File upload/download including drap & drop
 * File delete
 * File move/rename
 * File listing
@@ -33,7 +33,7 @@ or directly
 
 ```
 $ xleb -h
-usage: xleb [-h] [--path PATH] [--port PORT] [--host HOST] [--log-level LOG_LEVEL] [--log] [--password PASSWORD]
+usage: xleb [-h] [--path PATH] [--port PORT] [--host HOST] [--log-level LOG_LEVEL] [--log] [--password PASSWORD] [--origins ORIGINS [ORIGINS ...]]
 
 options:
   -h, --help            show this help message and exit
@@ -45,7 +45,16 @@ options:
   --log, -l             enable logging
   --password PASSWORD, -s PASSWORD
                         user password
+  --origins ORIGINS [ORIGINS ...], -r ORIGINS [ORIGINS ...]
+                        allowed origins for cors. by default allows all
 ```
+
+# Notes
+
+* password is sent and stored inside cookie without hashing due to lack of built-in hashing algorightms in vanilla javascript
+* password (from cookie) is used as auth for every action
+* by default CORS allows everything
+* if file exists during upload, it is ignored and untouched on server
 
 # LICENSE
 

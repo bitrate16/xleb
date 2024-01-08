@@ -39,42 +39,50 @@ FS_NODE_TEST_RE = re.compile(r'^(?!^(?:PRN|AUX|CLOCK\$|NUL|CON|COM\d|LPT\d)(?:\.
 # --------------------
 
 @state.routes.get('/css/{tail:.*}')
-async def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_css(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Getter for `/css/` directory"""
 
-    css_dir = os.path.join(state.moddir, 'static/css')
-    file_path = os.path.join(css_dir, request.match_info['tail'])
+    # Core dir
+    dir = os.path.join(state.moddir, 'static/css')
 
-    # Check for traversal
-    if file_path.startswith(css_dir + os.sep):
+    # Get fspath for posixpath
+    file_path = xleb.pathutils.posixpath_to_fspath(request.match_info['tail'], rootpath=dir)
+
+    # Check for existing
+    if os.path.exists(file_path) and os.path.isfile(file_path):
         return aiohttp.web.FileResponse(file_path)
 
     raise aiohttp.web_exceptions.HTTPNotFound()
 
 
 @state.routes.get('/media/{tail:.*}')
-async def root__css(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_media(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Getter for `/media/` directory"""
 
-    media_dir = os.path.join(state.moddir, 'static/media')
-    file_path = os.path.join(media_dir, request.match_info['tail'])
+    # Core dir
+    dir = os.path.join(state.moddir, 'static/media')
 
-    # Check for traversal
-    if file_path.startswith(media_dir + os.sep):
+    # Get fspath for posixpath
+    file_path = xleb.pathutils.posixpath_to_fspath(request.match_info['tail'], rootpath=dir)
+
+    # Check for existing
+    if os.path.exists(file_path) and os.path.isfile(file_path):
         return aiohttp.web.FileResponse(file_path)
 
     raise aiohttp.web_exceptions.HTTPNotFound()
 
 
 @state.routes.get('/')
-async def root(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_root(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    """Return index page depending on authorized state"""
+
     if not request['authorized']:
         return aiohttp.web.FileResponse(os.path.join(state.moddir, 'static/auth.html'))
     return aiohttp.web.FileResponse(os.path.join(state.moddir, 'static/index.html'))
 
 
 @state.routes.get('/list')
-async def list(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def api_list(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """directory listing"""
 
     webpath = request.query.get('path', None)
@@ -85,13 +93,13 @@ async def list(request: aiohttp.web.Request) -> aiohttp.web.Response:
         })
 
     # normalize to posix-style path
-    webpath = xleb.pathutils.normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_abs_posixpath(webpath)
 
     # Get fs path
-    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.posixpath_to_fspath(webpath)
 
     # Check subdir
-    if not xleb.pathutils.is_valid_subpath(fspath):
+    if not xleb.pathutils.is_safe_fspath(fspath):
         return aiohttp.web.json_response({
             'error': 'invalid path'
         })
@@ -129,7 +137,7 @@ async def list(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @state.routes.get('/download')
-async def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_download(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Direct file download"""
 
     webpath = request.query.get('path', None)
@@ -138,13 +146,13 @@ async def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
         raise aiohttp.web_exceptions.HTTPNotFound()
 
     # normalize to posix-style path
-    webpath = xleb.pathutils.normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_abs_posixpath(webpath)
 
     # Get fs path
-    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.posixpath_to_fspath(webpath)
 
     # Check subdir
-    if not xleb.pathutils.is_valid_subpath(fspath):
+    if not xleb.pathutils.is_safe_fspath(fspath):
         raise aiohttp.web_exceptions.HTTPNotFound()
 
     if not os.path.exists(fspath):
@@ -154,7 +162,7 @@ async def download(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @state.routes.get('/move')
-async def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_move(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Move file or directory from any path to any path"""
 
     websrcpath = request.query.get('src_path', None)
@@ -170,19 +178,19 @@ async def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
             'error': 'invalid dst_path',
         })
 
-    websrcpath = xleb.pathutils.normalize_webpath(websrcpath)
-    webdstpath = xleb.pathutils.normalize_webpath(webdstpath)
+    websrcpath = xleb.pathutils.normalize_abs_posixpath(websrcpath)
+    webdstpath = xleb.pathutils.normalize_abs_posixpath(webdstpath)
 
-    fssrcpath = xleb.pathutils.get_fspath_from_webpath(websrcpath)
-    fsdstpath = xleb.pathutils.get_fspath_from_webpath(webdstpath)
+    fssrcpath = xleb.pathutils.posixpath_to_fspath(websrcpath)
+    fsdstpath = xleb.pathutils.posixpath_to_fspath(webdstpath)
 
     # Check subdirs
-    if not xleb.pathutils.is_valid_subpath(fssrcpath):
+    if not xleb.pathutils.is_safe_fspath(fssrcpath):
         return aiohttp.web.json_response({
             'error': 'invalid src_path'
         })
 
-    if not xleb.pathutils.is_valid_subpath(fsdstpath):
+    if not xleb.pathutils.is_safe_fspath(fsdstpath):
         return aiohttp.web.json_response({
             'error': 'invalid dst_path'
         })
@@ -208,7 +216,7 @@ async def move(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @state.routes.get('/delete')
-async def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Delete file or directory"""
 
     webpath = request.query.get('path', None)
@@ -218,12 +226,12 @@ async def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
             'error': 'invalid src_path',
         })
 
-    webpath = xleb.pathutils.normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_abs_posixpath(webpath)
 
-    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.posixpath_to_fspath(webpath)
 
     # Check subdirs
-    if not xleb.pathutils.is_valid_subpath(fspath):
+    if not xleb.pathutils.is_safe_fspath(fspath):
         return aiohttp.web.json_response({
             'error': 'invalid src_path'
         })
@@ -252,7 +260,7 @@ async def delete(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @state.routes.get('/mkdir')
-async def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Create directory"""
 
     webpath = request.query.get('path', None)
@@ -268,12 +276,12 @@ async def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
             'error': 'invalid name',
         })
 
-    webpath = xleb.pathutils.normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_abs_posixpath(webpath)
 
-    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.posixpath_to_fspath(webpath)
 
     # Check subdirs
-    if not xleb.pathutils.is_valid_subpath(fspath):
+    if not xleb.pathutils.is_safe_fspath(fspath):
         return aiohttp.web.json_response({
             'error': 'invalid path'
         })
@@ -299,7 +307,7 @@ async def mkdir(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 @state.routes.post('/upload')
-async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """Upload file in given directory"""
 
     webpath = request.query.get('path', None)
@@ -307,12 +315,12 @@ async def upload(request: aiohttp.web.Request) -> aiohttp.web.Response:
     if webpath is None:
         raise aiohttp.web.HTTPBadRequest()
 
-    webpath = xleb.pathutils.normalize_webpath(webpath)
+    webpath = xleb.pathutils.normalize_abs_posixpath(webpath)
 
-    fspath = xleb.pathutils.get_fspath_from_webpath(webpath)
+    fspath = xleb.pathutils.posixpath_to_fspath(webpath)
 
     # Check subdirs
-    if not xleb.pathutils.is_valid_subpath(fspath):
+    if not xleb.pathutils.is_safe_fspath(fspath):
         raise aiohttp.web.HTTPBadRequest()
 
     # Check existing

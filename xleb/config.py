@@ -19,6 +19,8 @@ import argparse
 import inspect
 import os
 
+from typing import List, Optional
+
 
 def get_args() -> dict:
     """Get commandline arguments"""
@@ -66,6 +68,14 @@ def get_args() -> dict:
         default=None,
     )
 
+    parser.add_argument(
+        '--origins', '-r',
+        help='allowed origins for cors. by default allows all',
+        nargs='+',
+        type=str,
+        default=[],
+    )
+
     return vars(parser.parse_args())
 
 
@@ -75,11 +85,12 @@ class XlebConfig:
     def __init__(
         self,
         path: str='.',
-        port: int=8000,
+        port: int=9876,
         host: str='0.0.0.0',
         log_level: str='INFO',
         log: bool=False,
-        password: str=None,
+        password: Optional[str]=None,
+        origins: List[str]=None,
     ):
         self.path = os.path.abspath(path)
         self.port = port
@@ -87,6 +98,7 @@ class XlebConfig:
         self.log_level = log_level.upper()
         self.log = log
         self.password = password
+        self.origins = origins
 
     @staticmethod
     def init():

@@ -52,9 +52,24 @@ def main():
 
     # Middlewares
     import xleb.fmiddleware
-    state.app.middlewares.append(aiohttp_middlewares.cors_middleware(
-        allow_all=True
-    ))
+
+    if config.origins:
+        import re
+        origins = [
+            origin if '*' not in origin else re.compile(origin.replace('.', '\\.').replace('*', '.*'))
+            for origin in config.origins
+        ]
+        print(origins)
+        state.app.middlewares.append(aiohttp_middlewares.cors_middleware(
+            origins=origins,
+            allow_methods=[ 'GET', 'POST' ],
+            allow_headers=[ '*' ],
+            allow_credentials=True
+        ))
+    else:
+        state.app.middlewares.append(aiohttp_middlewares.cors_middleware(
+            allow_all=True
+        ))
     state.app.middlewares.append(xleb.fmiddleware.log_request)
     state.app.middlewares.append(xleb.fmiddleware.access_check)
 
