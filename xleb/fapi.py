@@ -163,7 +163,7 @@ async def handle_download(request: aiohttp.web.Request) -> aiohttp.web.Response:
     return aiohttp.web.FileResponse(
         fspath,
         headers={
-            aiohttp.hdrs.CONTENT_DISPOSITION: f'''inline; filename*=UTF-8''"{ urllib.parse.quote(fname, safe='') }"'''
+            aiohttp.hdrs.CONTENT_DISPOSITION: f'''inline; filename*=UTF-8''"{ urllib.parse.quote(fname, safe='') }"; filename="{ urllib.parse.quote(fname.encode('utf-8').decode('ascii', 'ignore'), safe='') }"'''
         }
     )
 
