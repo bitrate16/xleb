@@ -18,8 +18,9 @@
 import re
 import os
 import shutil
-import pathlib
 import logging
+
+import urllib.parse
 
 import aiohttp
 import aiohttp.web
@@ -158,7 +159,13 @@ async def handle_download(request: aiohttp.web.Request) -> aiohttp.web.Response:
     if not os.path.exists(fspath):
         raise aiohttp.web_exceptions.HTTPNotFound()
 
-    return aiohttp.web.FileResponse(fspath)
+    fname = fspath.rsplit('/')[-1]
+    return aiohttp.web.FileResponse(
+        fspath,
+        headers={
+            aiohttp.hdrs.CONTENT_DISPOSITION: f'''inline; filename*=UTF-8''"{ urllib.parse.quote(fname, safe='') }"'''
+        }
+    )
 
 
 @state.routes.get('/move')

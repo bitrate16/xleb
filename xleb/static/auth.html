@@ -36,7 +36,7 @@
                             var password = document.getElementById('password-input').value.trim();
 
                             if (event.button === 0) {
-                                document.cookie = `xleb-password=${ password }; path=/; expires=Tue, 00 Jan 4000 00:00:00 GMT; SameSite=Lax; domain=.${ window.location.hostname }`;
+                                document.cookie = `xleb-password=${ window.escape(password) }; path=/; expires=Tue, 00 Jan 4000 00:00:00 GMT; SameSite=Lax; domain=.${ window.location.hostname }`;
                                 window.location.reload();
                             }
                         }

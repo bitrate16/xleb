@@ -20,6 +20,8 @@ import logging
 import aiohttp.web
 import aiohttp.web_exceptions
 
+import urllib.parse
+
 from xleb.config import config
 from xleb.state import state
 
@@ -40,7 +42,12 @@ def access_check_whitelisted(path: str) -> bool:
 async def access_check(request: aiohttp.web.Request, handler):
     """Check if user password is valid and provide access. Else return auth page"""
 
-    password = request.cookies.get('xleb-password', None)
+    try:
+        password = urllib.parse.unquote(request.cookies.get('xleb-password', None))
+    except Exception as e:
+        logging.error(f'Failed parse cookie: { e }')
+        password = None
+
     if config.password is None or password == config.password or access_check_whitelisted(request.path):
         # pass authorized flag
         request['authorized'] = True
